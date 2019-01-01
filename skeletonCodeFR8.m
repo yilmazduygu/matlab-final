@@ -1,7 +1,8 @@
-% This script will be the skeleton code for importing the FR8 data files
+% This script will be the code for importing the FR8 data files
 % (txt) and generating imformative plots about the data
-% Hopefully the data will be structured in a way that would fit a LME
+% Hopefully data will be structured in a way that would fit an LME
 % (Linear Mixed-Effects Model).
+
 % Katie: Please see the end of the code for my questions. Thanks!
 
 clear; clc;
@@ -13,7 +14,7 @@ format compact;
 % arrays that I want to obtain.
 
 % Specify the folder 
-% myFolder = 'C:\Users\MenaLab\\Desktop\Data files';
+% myFolder = 'C:\Users\MenaLab\\Desktop\Data files'; % For using with the experimental computer
 myFolder = '/Users/Duygu/Google Drive/Sem III/Scientific Programming in Matlab/my codes for the course/Final project/Data files';
 % Check if the folder actually exists. Warn user if it doesn't.
 if ~isfolder(myFolder)
@@ -41,6 +42,7 @@ end
 
 %% Function to read each data file
 function S = readFR8txt(filename)
+% Function READFR8TXT(filename): read data files line by line to extract necessary info to a struct S.
 
 % Open text file, give error if not possible
 fid = fopen(filename);
