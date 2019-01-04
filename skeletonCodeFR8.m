@@ -194,9 +194,5 @@ end
 % format i specify is HH:mm:ss, it adds todat's date in front of the time
 % and writes to the data struct in that form. I probably wont be using that
 % info, but still. Am I calling the function wrong again?
-% #2. I wish to skip reading some files based on S.program info, because I
-% am not interested in data from the earlier stages of training. I tried to
-% do that in line 107, but it gives me the error 'matrix dimensions must
-% agree' where I call the function in the main script.
-% #3. lines 141, 161, and 184: I am not sure which one to pick. Both
+% #2. lines 141, 161, and 184: I am not sure which one to pick. Both
 % versions seem to work fine, though?
