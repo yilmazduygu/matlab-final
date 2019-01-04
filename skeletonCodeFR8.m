@@ -1,20 +1,17 @@
 % This script will be the code for importing the FR8 data files
 % (txt) and generating imformative plots about the data
-% Hopefully data will be structured in a way that would fit an LME
+% Hopefully the data will be structured in a way that would fit a LME
 % (Linear Mixed-Effects Model).
 
-% Katie: Please see the end of the code for my questions. Thanks!
 
 clear; clc;
 format compact;
 
 %% Process a sequence of files
-% The problem with this is that I won't have a priori information as to how
-% big the data will be, so I cannot preallocate memory for the struct of
-% arrays that I want to obtain.
+% 
 
 % Specify the folder 
-% myFolder = 'C:\Users\MenaLab\\Desktop\Data files'; % For using with the experimental computer
+% myFolder = 'C:\Users\MenaLab\\Desktop\Data files';
 myFolder = '/Users/Duygu/Google Drive/Sem III/Scientific Programming in Matlab/my codes for the course/Final project/Data files';
 % Check if the folder actually exists. Warn user if it doesn't.
 if ~isfolder(myFolder)
@@ -26,38 +23,51 @@ end
 filePattern = fullfile(myFolder, '*.txt');
 allFiles = dir(filePattern);
 
-bigSData = struct;
-
 for ii = 1 : length(allFiles)
   baseFileName = allFiles(ii).name;
   fullFileName = fullfile(myFolder, baseFileName);
   % Lets user know of what the script's doing
-  fprintf(1, 'Now reading %s\n', fullFileName);
-  % I don't know how to write on a struct in a way that would change
-  % it's dimensions with each run
-  %%% GIVES ERROR HERE: %%%
-  bigSData = readFR8txt(fullFileName); % I don't know where to lead the function to construct my struct, yet
+  fprintf(1, 'Now reading %s\n', baseFileName);
+ 
+  data(ii) = readFR8txt(fullFileName); 
 end
+fprintf(1, 'Finished reading all files in %s\n', myFolder);
+save 'data.mat' data
+
+%% Make the figure
 
 
 %% Function to read each data file
 function S = readFR8txt(filename)
-% Function READFR8TXT(filename): read data files line by line to extract necessary info to a struct S.
 
-% Open text file, give error if not possible
+%% Open text file, give error if not possible
 fid = fopen(filename);
 if fid<0
-    error('Error opening the file %s.\n', baseFileName);
+    error('Error opening the file %s.\n', filename);
 end
 
+% Set up the struct S, assign default values to each field
 S = struct;
+S.name = '';
+S.date = NaT;
+S.animal = NaN;
+S.group = NaN;
+S.box = NaN;
+S.time = NaT;
+S.program = '';
+S.numPress = NaN;
+S.numReward = NaN;
+S.presses = NaN;
+S.rewards = NaN;
+S.headEntries = NaN;
+S.comments = '';
 
 % Read header info, write each bit to its corresponding field in S
 while true
     line = fgetl(fid);
     if isempty(line) || length(line) == 0;continue;end % Skip empty lines
     if line(1) == 'A';break;end % Exit the loop to get the arrays in the next step
-    tagValue = strsplit(line,':'); 
+    tagValue = strsplit(line,': '); 
     tag = tagValue{1}; 
     value = tagValue{2};
     % Because of windows' directory naming, strsplit function splits 
@@ -66,38 +76,42 @@ while true
     switch upper(tag)
         case 'FILE'
             % Found the file name
-            S.group.animal.date.name = char(value);
+            S.name = char(value);
         case 'START DATE'
             % Found the session date
-            S.group.animal.date = sscanf(value, '%{MM/dd/yy}D'); % this doesn't work, it doesn't write the value in to the struct's related field
+            S.date = datetime(value, 'InputFormat', 'MM/dd/yy'); 
         case 'END DATE'
             % Found the date session ended, not important, continue
             continue;
         case 'SUBJECT'
             % Found the animal ID #
-            S.group.animal = str2double(value);
+            S.animal = str2double(value);
         case 'EXPERIMENT'
             % experiment name, not important, continue
             continue;
         case 'GROUP'
             % Found the treatment group
-            S.group = str2double(value); % this doesn't work, see bottom of the script
+            S.group = str2double(value); 
         case 'BOX'
             % Found the box the animal's been tested
-            S.group.animal.date.box = str2double(value); 
+            S.box = str2double(value); 
         case 'START TIME'
             % Found the time session has started
-            S.group.animal.date.time = datetime(value, 'HH:mm:ss'); % This doesn't work
+            S.time = datetime(value, 'InputFormat', 'HH:mm:ss'); % here the 
+                % datetime fxn adds today's date before the time info it pulls
         case 'END TIME'
             continue;
         case 'MSN'
-            S.group.animal.date.program = char(value);
+            S.program = char(value);
+            if strcmp(S.program, 'FR8_Day4_NKG') || strcmp(S.program,'FR8_Day3_NKG') || strcmp(S.program,'FR8_Day2_NKG')
+                return; % I don't want the data for earlier stages of training
+            end
         case 'F'
             continue;
         case 'L'
-            S.group.animal.date.numPress = str2double(value);
+            S.numPress = str2double(value);
         case 'R'
-            S.group.animal.date.numReward = str2double(value);
+            S.numReward = str2double(value);
         otherwise
             error(['Found an unknown tag ' tag]);
     end
@@ -107,26 +121,67 @@ line = fgetl(fid); % irrelevant info on this line, do not store
 
 % Read Lever Press Array (C):
 line = fgetl(fid); % next line, 'C:'
-countC = 0;
-temp = cell;
+counter = 0;
+temp = {};
 if line(1) == 'C' % fid is at lever press array
     while true
         line = fgetl(fid); % next line, where the data starts
         if line(1) == 'D';break;end 
-        countC = countC + 1; % counts the lines it reads
-        temp{countC} = sscanf(line, '%*: %f %f %f %f %f'); % possibly problematic 
+        counter = counter + 1; % counts the lines it reads
+        tagValue = strsplit(line,': '); 
+        tag = tagValue{1}; 
+        value = tagValue{2};
+        A = sscanf(value, '%f');
+        temp{counter} = A';
     end   
-    if ~(countC*5 == ceil(S.group.animal.date.numPress/5)) % sanity check
-        warning('lever press array (C) read incorrectly');
+    if ~(counter== ceil(S.numPress/5)) % sanity check
+        warning('lever press array (C) in %s possibly read incorrectly', filename);
     end
-    S.group.animal.date.presses = cat(2, temp); % this part of code not yet 
-        % finished, but basically I will concatenate temp, and use cell2num 
-        % to write the data vector into the relevant field in S
+    S.presses = cat(2, temp{:});
 end
 
-% Then, the same thing as C, but for D and E, here
-% Read Reward Array (D):
-% Read Head Entry Array (E):
+% Read Rewards Array (D):
+counter = 0;
+temp = {};
+if line(1) == 'D' % fid is at rewards array
+    while true
+        line = fgetl(fid); % next line, where the data starts
+        if line(1) == 'E';break;end 
+        counter = counter + 1; % counts the lines it reads
+        tagValue = strsplit(line,': '); 
+        tag = tagValue{1}; 
+        value = tagValue{2};
+        A = sscanf(value, '%f');
+        temp{counter} = A';
+    end   
+    if ~(counter== ceil(S.numReward/5)) % sanity check
+        warning('rewards array (D) in %s possibly read incorrectly', filename);
+    end
+    S.rewards = cell2mat(temp);
+end
+
+% Read Head Entries Array (E):
+counter = 0;
+temp = {};
+if line(1) == 'E' % fid is at head entry array
+    while true
+        line = fgetl(fid); % next line, where the data starts   
+        if line == -1;break;end 
+        if line(1) == '\'
+            S.comments = line(2:end);
+            continue;
+        end
+        counter = counter + 1; 
+        tagValue = strsplit(line,': '); 
+        tag = tagValue{1}; 
+        value = tagValue{2};
+        A = sscanf(value, '%f');
+        temp{counter} = A';
+    end   
+    % I don't have the total num of head entries info on the file, so a
+    % sanity check is not possible for this one
+    S.headEntries = cell2mat(temp); 
+end
 
 % Close the file
 fclose(fid);
@@ -134,21 +189,14 @@ fclose(fid);
 end
 
 %% problems:
-% #1. Biggest one of my problems is that the struct here does not build
-% itself smoothly. The hierachy of the struct is as such:
-% S.group.animal.date.allTheRestOfTheFields. But currently if there's an
-% issue with a field e.g. group info missing in the txt file, the script
-% writes NaN to S.group, and all the fields below group are gone. How can I
-% structure S so that even if some info are missing, it would keep the rest
-% of the info? 
-% #2. I want to read the date and time info, and write them to
-% the struct as date and time, such that matlab knows that they are date
-% and time. But I couldn't make the script do that. Isn't datetime function
-% supposed to do that? Or, why doesn't sscanf(line, '%D') write the date to
-% its respective field?
-% #3. Another very important issue is that I couldn't figure out how to
-% call this function in my actual script. This function gives out a struct,
-% but I want the whole script to go about the folder file by file, read
-% each file and store that info in the struct S, only to put S to the
-% bigger data struct, then go on to the next file, adding that info to the
-% bigger struct right below the previous one. 
+
+% #1. datetime function on line 100 does a funny thing: even though the
+% format i specify is HH:mm:ss, it adds todat's date in front of the time
+% and writes to the data struct in that form. I probably wont be using that
+% info, but still. Am I calling the function wrong again?
+% #2. I wish to skip reading some files based on S.program info, because I
+% am not interested in data from the earlier stages of training. I tried to
+% do that in line 107, but it gives me the error 'matrix dimensions must
+% agree' where I call the function in the main script.
+% #3. lines 141, 161, and 184: I am not sure which one to pick. Both
+% versions seem to work fine, though?
