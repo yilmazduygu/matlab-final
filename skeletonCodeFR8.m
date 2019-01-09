@@ -21,6 +21,9 @@ end
 % Get a list of all txt files in the folder.
 filePattern = fullfile(myFolder, '*.txt');
 allFiles = dir(filePattern);
+% data = repmat(struct('field1',[],'field2',[],'field3', [], 'field4', [], ...
+%     'field5',[], 'field6', [], 'field7', [], 'field8', [], 'field9', [], ...
+%     'field10', [], 'field11', [], 'field12', [], 'field13', [], 'field14', []),1,length(allFiles));
 
 for ii = 1 : length(allFiles)
   baseFileName = allFiles(ii).name;
@@ -36,8 +39,122 @@ else
 end
 save 'data.mat' data
 
-%% Make the figure
+%% Clean and sort the data
 
+rawT= struct2table(data, 'AsArray',1);
+T = rmmissing(rawT, 'DataVariables', 'numPress'); % remove 
+        % the cases with no data in numPress (These are due to me choosing 
+        % not to read them from the files, below)
+
+% For some animals, I needed to re-run their sessions, due to technical
+% problems. Replace data for problematic sessions with the second runs
+% (noted in the comments)
+secondRuns = ~ismissing(T.comments);
+[r,~] = find(secondRuns);
+d = T.date(r); % dates of those double sessions
+a = T.animal(r); % animals that had been re-run
+for ii=1:length(r)
+    rm(:,ii) = T.date == d(ii) & T.animal == a(ii) & strcmp(T.comments, '');
+end
+rm = sum(rm,2); % because for each double-session case rm put the logical values in seperate column
+rows2remove = logical(rm);
+T(rows2remove,:) = [];
+
+% On Dec 13th, I started training the mice with the test code, later due to
+% some problems we had to postpone the testing, so those two days do not
+% mean much, nor are they comparable to the rest of the data, remove:
+testDays = (T.date == '13-Dec-2018') + (T.date == '14-Dec-2018');
+testDays = logical(testDays);
+T(testDays,:) = [];
+
+% Exclude the earlier phases of training with wider press windows  
+wideWindow = {'FR8_FULL_3ar_nolimit','FR8_FULL_3ar_60sec','FR8_FULL_3ar_40sec',...
+    'FR8_FULL_3ar_30secc'};
+w = ismember(T.program,wideWindow);
+T(w,:) = [];
+T = sortrows(T,[1 2]);
+
+%% Make the figure
+T.efficiency = (T.numReward.*8)./T.numPress;
+[perSession,sessions] = findgroups(T(:,'date'));
+[perAnimal,animals] = findgroups(T(:,'animal'));
+meanEfficiency = mean(T.efficiency);
+
+figure(1);
+clf;hold on
+boxplot(T.efficiency,perSession);
+set(gca,'YLim', [0 1]);
+plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
+xStart = 3;
+xEnd = 2;
+yStart = 0.5;
+line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
+text(xStart,yStart-0.01,['\mu = ' num2str(meanEfficiency)], 'HorizontalAlignment',...
+    'left','color','k');
+xlabel('Training days');
+ylabel('Efficiency score (au)');
+title('Efficiency scores grouped across training days');
+% h = findobj(gcf,'tag','Outliers');
+% xdata = get(h,'XData');
+% ydata = get(h,'YData');
+% yd = cell2mat(ydata);
+% yd = ~isnan(yd);
+% text(xdata(yd),ydata(yd),animals(yd),'HorizontalAlignment',...
+%     'left','color','r');
+hold off
+
+
+figure(2);
+clf;hold on
+boxplot(T.efficiency,perAnimal);
+xticklabels(table2cell(animals));
+xtickangle(45);
+set(gca,'YLim', [0 1]);
+plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
+xStart = 4;
+xEnd = 2.6;
+yStart = 0.45;
+line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
+text(xStart,yStart-0.01,['\mu = ' num2str(meanEfficiency)], 'HorizontalAlignment',...
+    'left','color','k');
+xlabel('Animals'); 
+ylabel('Efficiency score (au)');
+title('Efficiency scores per animal');
+hold off
+
+% figure(3);
+% clf;
+% R=7;
+% C=2;
+% for ii=1:length(animals)
+%     subplot(R,C,ii);
+%     plot(T.efficiency(T.animal == animals(ii),);
+% end
+% meanEffiPerSesh = splitapply(@mean,tableData.efficiency,perSession);
+% stdEffiPerSesh = splitapply(@std,tableData.efficiency,perSession);
+% SEMfxn = @(x)std(x)/sqrt(length(x));
+% semEffiPerSesh = splitapply(SEMfxn,tableData.efficiency,perSession);
+% tableData.date = categorical(tableData.date);
+% [tf,idx] = ismember(tableData.date,sessions);
+% outlierTF = zeros(length(tableData.efficiency));
+% for ii=1:length(tableData.efficiency)
+%     if (tableData.efficiency(ii) > (meanEffiPerSesh(idx)) + 3*stdEffiPerSesh(idx)) ...
+%             || (tableData.efficiency(ii) < (meanEffiPerSesh - 3*stdEffiPerSesh(idx)))
+%         outlierTF(ii) = 1;
+%     else 
+%         outlierTF(ii) = 0;
+%     end
+% end
+% outlierTF = logical(outlierTF);
+% figure(2);clf;hold on
+% errorbar(meanEffiPerSesh,semEffiPerSesh,':');
+% plot(sessions,tableData.efficiency,'r*');
+% 
+% [perAnimal,animals] = findgroups(tableData(:,'animal'));
+% meanEffiPerAni = splitapply(@mean,tableData.efficiency,perAnimal);
+% 
+% semEffiPerAni = splitapply(SEMfxn,tableData.efficiency,perAnimal);
+% % errorbar(meanEffiPerAni,semEffiPerAni);
 
 %% Function to read each data file
 function S = readFR8txt(filename)
@@ -62,6 +179,7 @@ S.presses = NaN;
 S.rewards = NaN;
 S.headEntries = NaN;
 S.comments = '';
+S.start = NaT;
 S.name = '';
 % Read header info, write each bit to its corresponding field in S
 while true
@@ -80,6 +198,7 @@ while true
             S.name = char(value);
         case 'START DATE'
             % Found the session date
+            S.date = datetime(value, 'InputFormat', 'MM/dd/yy');
             recDate = char(value); % for later use
         case 'END DATE'
             % Found the date session ended, not important, continue
@@ -102,20 +221,22 @@ while true
         case 'START TIME'
             % Found the time session has started
             recTime = char(value);
-            S.date= datetime([recDate, ' ', recTime], 'InputFormat', 'MM/dd/yy HH:mm:ss');
+            S.start= datetime([recDate, ' ', recTime], 'InputFormat', 'MM/dd/yy HH:mm:ss');
         case 'END TIME'
             % Found the time session has ended, use this to find out
             % session duration
             recTimeEnd = char(value);
             endTime = datetime([recDate, ' ', recTimeEnd], 'InputFormat', 'MM/dd/yy HH:mm:ss');
-            S.duration = endTime - S.date;
+            S.duration = endTime - S.start;
             if S.duration > minutes(60) % Sanity check
                 warning('Session duration longer than an hour for this one');
             end
         case 'MSN'
             % Found the program run that day
             S.program = char(value);
-            if strcmp(S.program, 'FR8_Day4_NKG') || strcmp(S.program,'FR8_Day3_NKG') || strcmp(S.program,'FR8_Day2_NKG')
+            earlyTraining = {'FR8_Day4_NKG','FR8_Day3_NKG','FR8_Day2_NKG',...
+                'FR3_FULL_3ar_nolimit','FR5_FULL_3ar_nolimit'};
+            if ismember(S.program,earlyTraining)
                 return; % I don't want the data for earlier stages of training
             end
         case 'F'
@@ -157,34 +278,31 @@ if line(1) == 'E' % fid is at head entry array
     [S.headEntries, S.comments] = readArray('E', 'X');
 end
 
-
-function [cellArray, comment] = readArray(whichArray, untilWhere)
-allArrays = {'C', 'D', 'E'};
-if ~ismember(whichArray, allArrays)
-    error('Local function called wrong');
-end
-
-counter = 0;
-temp = {};
-comment = '';
-while true
-        line = fgetl(fid); % next line, where the data starts
-        if line(1) == untilWhere;break;end
-        if line(1) == '\'
-            comment = line(2:end);
-            continue;
+% Function to read data arrays:
+    function [array, comment] = readArray(whichArray, untilWhere)
+        allArrays = {'C', 'D', 'E'};
+        if ~ismember(whichArray, allArrays)
+            error('Local function called wrong');
         end
-        if line == -1;break;end
-        counter = counter + 1; % counts the lines it reads
-        values = extractAfter(line, ': ');
-        A = sscanf(values, '%f');
-        temp{counter} = A'; %I probably couldn't understand what you meant, because I couldn't get rid of this transpose, nor the str2num worked.
-end
-cellArray = cat(2, temp{:});
-% I meant to use the values I read to S.numPress and S.numReward in this
-% nested function. But apperantly I cannot pass variables I created above
-% to the nested function?
-end
+        
+        counter = 0;
+        temp = {};
+        comment = '';
+        while true
+            line = fgetl(fid); % next line, where the data starts
+            if line(1) == untilWhere;break;end
+            if line(1) == '\'
+                comment = line(2:end);
+                continue;
+            end
+            if line == -1;break;end
+            counter = counter + 1; % counts the lines it reads
+            values = extractAfter(line, ': ');
+            A = sscanf(values, '%f');
+            temp{counter} = A'; %I probably couldn't understand what you meant, because I couldn't get rid of this transpose, nor the str2num worked.
+        end
+        array = cat(2, temp{:});
+    end
 
 % Close the file
 fclose(fid);
