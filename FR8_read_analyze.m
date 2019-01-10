@@ -4,11 +4,12 @@
 % (Linear Mixed-Effects Model).
 
 
-clear; clc;
-format compact;
 
 %% Process a sequence of files
 % 
+
+clear; clc;
+format compact;
 % Specify the folder 
 % myFolder = 'C:\Users\MenaLab\\Desktop\Data files';
 myFolder = '/Users/Duygu/Google Drive/Sem III/Scientific Programming in Matlab/my codes for the course/Final project/Data files';
@@ -21,16 +22,13 @@ end
 % Get a list of all txt files in the folder.
 filePattern = fullfile(myFolder, '*.txt');
 allFiles = dir(filePattern);
-% data = repmat(struct('field1',[],'field2',[],'field3', [], 'field4', [], ...
-%     'field5',[], 'field6', [], 'field7', [], 'field8', [], 'field9', [], ...
-%     'field10', [], 'field11', [], 'field12', [], 'field13', [], 'field14', []),1,length(allFiles));
 
 for ii = 1 : length(allFiles)
   baseFileName = allFiles(ii).name;
   fullFileName = fullfile(myFolder, baseFileName);
   % Lets user know of what the script is doing. 
   fprintf(1, '%d. Now reading %s\n', ii, baseFileName);
-  data(ii) = readFR8txt(fullFileName);  % I don't know how to pre-allocate memory for 'data', so I cannot fix the warning Matlab gives here
+  data(ii) = readFR8txt(fullFileName); 
 end
 if ii ~= length(allFiles)
     error('Problem with reading all the files in %s\n', myFolder);
@@ -56,7 +54,8 @@ a = T.animal(r); % animals that had been re-run
 for ii=1:length(r)
     rm(:,ii) = T.date == d(ii) & T.animal == a(ii) & strcmp(T.comments, '');
 end
-rm = sum(rm,2); % because for each double-session case rm put the logical values in seperate column
+rm = sum(rm,2); % because for each double-session case rm puts the logical 
+  % values in a seperate column
 rows2remove = logical(rm);
 T(rows2remove,:) = [];
 
@@ -74,87 +73,86 @@ w = ismember(T.program,wideWindow);
 T(w,:) = [];
 T = sortrows(T,[1 2]);
 
+save analysis.mat
+
+
 %% Make the figure
 T.efficiency = (T.numReward.*8)./T.numPress;
 [perSession,sessions] = findgroups(T(:,'date'));
 [perAnimal,animals] = findgroups(T(:,'animal'));
 meanEfficiency = mean(T.efficiency);
+meanEffiPerSesh = splitapply(@mean,T.efficiency,perSession);
+stdEffiPerSesh = splitapply(@std,T.efficiency,perSession);
+SEMfxn = @(x)std(x)/sqrt(length(x));
+semEffiPerSesh = splitapply(SEMfxn,T.efficiency,perSession);
+outliers = isoutlier(T.efficiency);
 
 figure(1);
 clf;hold on
-boxplot(T.efficiency,perSession);
+grid on
+p1 = gscatter(T.date,T.efficiency, perSession, 'b', [], 5);
+o1 = p1;
+p2 = fill([table2array(sessions);flipud(table2array(sessions))],...
+    [meanEffiPerSesh-semEffiPerSesh;flipud(meanEffiPerSesh+semEffiPerSesh)],...
+    [.9 .9 .9],'linestyle','none','FaceAlpha',.3,'LineStyle',':');
+p3 = plot(table2array(sessions),meanEffiPerSesh);
+p4 = scatter(T.date(outliers),T.efficiency(outliers),10,'r', '+');
 set(gca,'YLim', [0 1]);
-plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
-xStart = 3;
-xEnd = 2;
+p5 = plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
+xStart = T.date(3);
+xEnd = T.date(2);
 yStart = 0.5;
-line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
+p6 = line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
 text(xStart,yStart-0.01,['\mu = ' num2str(meanEfficiency)], 'HorizontalAlignment',...
-    'left','color','k');
-xlabel('Training days');
-ylabel('Efficiency score (au)');
-title('Efficiency scores grouped across training days');
-% h = findobj(gcf,'tag','Outliers');
-% xdata = get(h,'XData');
-% ydata = get(h,'YData');
-% yd = cell2mat(ydata);
-% yd = ~isnan(yd);
-% text(xdata(yd),ydata(yd),animals(yd),'HorizontalAlignment',...
-%     'left','color','r');
+    'left','color','k','FontSize', 10, 'FontName', 'Arial');
+xlabel('Training days','FontSize', 10, 'FontName', 'Arial');
+xtickformat('MM-dd');
+ylabel('Efficiency score (au)','FontSize', 10, 'FontName', 'Arial');
+title('Efficiency scores across training','FontSize', 10, 'FontName', 'Arial');
+mu = strcat('\mu= ',num2str(meanEfficiency));
+legend([p5 p3 p2 p4], {mu,'Mean','SEM', ... 
+    'Outliers',}, 'Location', 'southwest'); % gscatter groups the data and saves 
+    % it in groups, that's why I cannot include it to my legend, I couldn't find a 
+    % solution to this online
 hold off
+JNeuro= gcf;
+    width= 17.6; height= 8.5; % 2 column width
+JNeuro.PaperUnits= 'centimeters';
+JNeuro.PaperOrientation= 'portrait';
+JNeuro.PaperPosition= [0 0 width height];
+JNeuro.PaperPositionMode= 'manual';
+JNeuro.PaperSize= [width height];
+JNeuro.Units= 'centimeters';
+JNeuro.Position= [10 10 width height];
+print('Figure1 (JNeuro Format)', '-dpng','-r300');
 
 
 figure(2);
 clf;hold on
-boxplot(T.efficiency,perAnimal);
+boxplot(T.efficiency,perAnimal,'OutlierSize',4);
 xticklabels(table2cell(animals));
 xtickangle(45);
 set(gca,'YLim', [0 1]);
 plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
-xStart = 4;
+xStart = 3;
 xEnd = 2.6;
 yStart = 0.45;
 line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
 text(xStart,yStart-0.01,['\mu = ' num2str(meanEfficiency)], 'HorizontalAlignment',...
-    'left','color','k');
-xlabel('Animals'); 
-ylabel('Efficiency score (au)');
-title('Efficiency scores per animal');
+    'left','color','k', 'FontSize', 7,'FontName', 'Arial');
+xlabel('Animals','FontSize', 10, 'FontName', 'Arial'); 
+ylabel('Efficiency score (au)','FontSize', 10, 'FontName', 'Arial');
+title('Efficiency scores per animal','FontSize', 10, 'FontName', 'Arial');
 hold off
+fig = gcf;
+fig = get(JNeuro);
+newWidth= 11.6; newHeight= 5.2;
+fig.PaperPosition= [0 0 newWidth newHeight];
+fig.PaperSize= [newWidth newHeight];
+fig.Position= [10 10 newWidth newHeight];
+print('Figure2 (JNeuro Format)', '-dpng','-r300');
 
-% figure(3);
-% clf;
-% R=7;
-% C=2;
-% for ii=1:length(animals)
-%     subplot(R,C,ii);
-%     plot(T.efficiency(T.animal == animals(ii),);
-% end
-% meanEffiPerSesh = splitapply(@mean,tableData.efficiency,perSession);
-% stdEffiPerSesh = splitapply(@std,tableData.efficiency,perSession);
-% SEMfxn = @(x)std(x)/sqrt(length(x));
-% semEffiPerSesh = splitapply(SEMfxn,tableData.efficiency,perSession);
-% tableData.date = categorical(tableData.date);
-% [tf,idx] = ismember(tableData.date,sessions);
-% outlierTF = zeros(length(tableData.efficiency));
-% for ii=1:length(tableData.efficiency)
-%     if (tableData.efficiency(ii) > (meanEffiPerSesh(idx)) + 3*stdEffiPerSesh(idx)) ...
-%             || (tableData.efficiency(ii) < (meanEffiPerSesh - 3*stdEffiPerSesh(idx)))
-%         outlierTF(ii) = 1;
-%     else 
-%         outlierTF(ii) = 0;
-%     end
-% end
-% outlierTF = logical(outlierTF);
-% figure(2);clf;hold on
-% errorbar(meanEffiPerSesh,semEffiPerSesh,':');
-% plot(sessions,tableData.efficiency,'r*');
-% 
-% [perAnimal,animals] = findgroups(tableData(:,'animal'));
-% meanEffiPerAni = splitapply(@mean,tableData.efficiency,perAnimal);
-% 
-% semEffiPerAni = splitapply(SEMfxn,tableData.efficiency,perAnimal);
-% % errorbar(meanEffiPerAni,semEffiPerAni);
+
 
 %% Function to read each data file
 function S = readFR8txt(filename)
@@ -184,7 +182,9 @@ S.name = '';
 % Read header info, write each bit to its corresponding field in S
 while true
     line = fgetl(fid);
-    if isempty(line) || length(line) == 0;continue;end % Skip empty lines: I cannot fix the warning Matlab gives here, because for my files, with fgetl, isempty function does not work, only length does
+    if isempty(line) || length(line) == 0;continue;end % Skip empty lines: 
+      % I cannot fix the warning Matlab gives here, because for my files, with fgetl, 
+      % isempty function does not work, only length does
     if line(1) == 'A';break;end % Exit the loop to get the arrays in the next step
     tagValue = strsplit(line,': '); 
     tag = tagValue{1}; 
@@ -299,9 +299,9 @@ end
             counter = counter + 1; % counts the lines it reads
             values = extractAfter(line, ': ');
             A = sscanf(values, '%f');
-            temp{counter} = A'; %I probably couldn't understand what you meant, because I couldn't get rid of this transpose, nor the str2num worked.
+            temp{counter} = A; 
         end
-        array = cat(2, temp{:});
+        array = cat(1, temp{:}); 
     end
 
 % Close the file
