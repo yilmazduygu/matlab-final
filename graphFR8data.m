@@ -58,8 +58,7 @@ legend([p5 p3 p2 p4], {mu,'Mean','SEM', ...
     % it in groups, that's why I cannot include it to my legend, I couldn't find a 
     % solution to this online
 hold off
-JNeuro= gcf;
-    width= 17.6; height= 8.5; % 2 column width
+    width= 17.8; height= 8; % 2 column width
 JNeuro.PaperUnits= 'centimeters';
 JNeuro.PaperOrientation= 'portrait';
 JNeuro.PaperPosition= [0 0 width height];
@@ -67,6 +66,7 @@ JNeuro.PaperPositionMode= 'manual';
 JNeuro.PaperSize= [width height];
 JNeuro.Units= 'centimeters';
 JNeuro.Position= [10 10 width height];
+set(gcf, JNeuro);
 print(figure1, '-dpng','-r300');
 
 
@@ -87,11 +87,7 @@ xlabel('Animals','FontSize', 10, 'FontName', 'Arial');
 ylabel('Efficiency score (au)','FontSize', 10, 'FontName', 'Arial');
 title('Efficiency scores per animal','FontSize', 10, 'FontName', 'Arial');
 hold off
-fig = get(JNeuro);
-newWidth= 11.6; newHeight= 5.2;
-fig.PaperPosition= [0 0 newWidth newHeight];
-fig.PaperSize= [newWidth newHeight];
-fig.Position= [10 10 newWidth newHeight];
+set(gcf, JNeuro);
 print(figure2, '-dpng','-r300');
 
 
