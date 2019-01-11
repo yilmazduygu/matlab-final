@@ -13,7 +13,7 @@ function graphFR8data(matFileName, figure1, figure2)
 
 load(matFileName,'T');
 
-T.efficiency = (T.numReward.*8)./T.numPress;
+T.efficiency = (T.numReward.*8)./T.numPress; % Calculate efficiency score (a learning proxy in this paradigm)
 [perSession,sessions] = findgroups(T(:,'date'));
 [perAnimal,animals] = findgroups(T(:,'animal'));
 meanEfficiency = mean(T.efficiency);
@@ -24,22 +24,17 @@ outliers = isoutlier(T.efficiency);
 defaultFig1 = 'Figure1 (JNeuro Format)';
 defaultFig2 = 'Figure2 (JNeuro Format)';
 
-switch nargin 
-    case 1
+if nargin == 1
     figure1 = defaultFig1;
     figure2 = defaultFig2;
-    case 2
-        error('Either enter both figures'' names, or enter the 1st input argument alone in which case the names will be default.');
-    case 3
-        figure1;figure2;
-    otherwise
-        error('Invalid inputs');
+elseif nargin == 2
+        error('Either enter names for both the figures, or enter the 1st input argument alone in which case the names will be default.');
 end
         
 figure(1);
 clf;hold on
 grid on
-p1 = gscatter(T.date,T.efficiency, perSession, 'b', [], 5);
+gscatter(T.date,T.efficiency, perSession, 'b', [], 5);
 p2 = fill([table2array(sessions);flipud(table2array(sessions))],...
     [meanEffiPerSesh-semEffiPerSesh;flipud(meanEffiPerSesh+semEffiPerSesh)],...
     [.9 .9 .9],'linestyle','none','FaceAlpha',.3,'LineStyle',':');
@@ -50,7 +45,7 @@ p5 = plot(get(gca,'XLim'),[meanEfficiency meanEfficiency],'k');
 xStart = T.date(3);
 xEnd = T.date(2);
 yStart = 0.5;
-p6 = line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
+line([xStart xEnd],[yStart meanEfficiency], 'Color','black');
 text(xStart,yStart-0.01,['\mu = ' num2str(meanEfficiency)], 'HorizontalAlignment',...
     'left','color','k','FontSize', 10, 'FontName', 'Arial');
 xlabel('Training days','FontSize', 10, 'FontName', 'Arial');
@@ -92,7 +87,6 @@ xlabel('Animals','FontSize', 10, 'FontName', 'Arial');
 ylabel('Efficiency score (au)','FontSize', 10, 'FontName', 'Arial');
 title('Efficiency scores per animal','FontSize', 10, 'FontName', 'Arial');
 hold off
-fig = gcf;
 fig = get(JNeuro);
 newWidth= 11.6; newHeight= 5.2;
 fig.PaperPosition= [0 0 newWidth newHeight];
