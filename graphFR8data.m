@@ -1,7 +1,14 @@
-function graphFR8data(matFileName)
-% HELP SECTION TO BE ADDED
-%
-%
+function graphFR8data(matFileName, figure1, figure2)
+% FUNCTION graphFR8data(matFileName)
+% Takes in the name of a .mat file containing FR8 data table. Does some
+% calculations, and produces some graphs about the data.
+%   INPUT:
+%       matFileName = a string array, specifying the name of the .mat file
+%       saved by readCleanSave function before. 
+%       figure1 = (OPTIONAL) a string array, specifying the name figure 1
+%       will be saved as
+%       figure2 = (OPTIONAL) a string array, specifying the name figure 2
+%       will be saved as
 %
 
 load(matFileName,'T');
@@ -14,7 +21,21 @@ meanEffiPerSesh = splitapply(@mean,T.efficiency,perSession);
 SEMfxn = @(x)std(x)/sqrt(length(x));
 semEffiPerSesh = splitapply(SEMfxn,T.efficiency,perSession);
 outliers = isoutlier(T.efficiency);
+defaultFig1 = 'Figure1 (JNeuro Format)';
+defaultFig2 = 'Figure2 (JNeuro Format)';
 
+switch nargin 
+    case 1
+    figure1 = defaultFig1;
+    figure2 = defaultFig2;
+    case 2
+        error('Either enter both figures'' names, or enter the 1st input argument alone in which case the names will be default.');
+    case 3
+        figure1;figure2;
+    otherwise
+        error('Invalid inputs');
+end
+        
 figure(1);
 clf;hold on
 grid on
@@ -51,7 +72,7 @@ JNeuro.PaperPositionMode= 'manual';
 JNeuro.PaperSize= [width height];
 JNeuro.Units= 'centimeters';
 JNeuro.Position= [10 10 width height];
-print('Figure1 (JNeuro Format)', '-dpng','-r300');
+print(figure1, '-dpng','-r300');
 
 
 figure(2);
@@ -77,14 +98,7 @@ newWidth= 11.6; newHeight= 5.2;
 fig.PaperPosition= [0 0 newWidth newHeight];
 fig.PaperSize= [newWidth newHeight];
 fig.Position= [10 10 newWidth newHeight];
-print('Figure2 (JNeuro Format)', '-dpng','-r300');
+print(figure2, '-dpng','-r300');
 
-figure(3);
-clf; hold on
-rewardSec = T.rewards{1,1}./60;
-bar(rewardSec, 100.*ones(size(rewardSec)), 0.1, 'stacked', 'r');
-headentSec = T.headEntries{1,1}./60;
-bar(headentSec, 60.*ones(size(headentSec)), 0.4, 'stacked','k');
-pressSec = T.presses{1,1}./60;
-scatter(pressSec,0:1:length(pressSec)-1,'.');
+
 end
