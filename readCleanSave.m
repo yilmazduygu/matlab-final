@@ -50,6 +50,7 @@ secondRuns = ~ismissing(T.comments);
 [r,~] = find(secondRuns);
 d = T.date(r); % dates of those double sessions
 a = T.animal(r); % animals that had been re-run
+rm = zeros(length(T.animal),r);
 for ii=1:length(r)
     rm(:,ii) = T.date == d(ii) & T.animal == a(ii) & strcmp(T.comments, '');
 end
@@ -70,7 +71,7 @@ wideWindow = {'FR8_FULL_3ar_nolimit','FR8_FULL_3ar_60sec','FR8_FULL_3ar_40sec',.
     'FR8_FULL_3ar_30secc'};
 w = ismember(T.program,wideWindow);
 T(w,:) = [];
-T = sortrows(T,[1 2]);
+T = sortrows(T,[1 2]); % I don't know how to fix this one 
 
-save(matFileName, {'T','rawT','data'});
+save(matFileName, 'T','rawT','data');
 
