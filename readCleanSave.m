@@ -1,15 +1,15 @@
 function readCleanSave(myFolder, matFileName)
 % FUNCTION readCleanSave(myFolder, matFileName) 
-% HELP SECTION TO BE ADDED
 % Goes through the folder specified by the user in "myFolder", reads the MED-PC
-% text files in that folder, creates a data struct in the current path,
-% named "data.mat". Gives out the path to that .mat file.
-%   INPUT: 
+% text files in that folder, creates a data struct in the workspace called "data".
+% Turn that data struct into a data table, clean and prepare the table to
+% analysis. Save the variables in the workspace, to the current path, with
+% the name "matFileName".
+%   INPUTS: 
 %       myFolder = a string array specifying the complete path to the folder
 %       with data files, that needs to be gone through.
-%   OUTPUT:
-%       path2data = the destination path to the data struct consisting of
-%       the information collected from MED-PC text files in "myFolder".
+%       matFileName = a string array specifying the .mat file name the
+%       variables will be saved into.
 %
 
 % Check if the folder actually exists. Warn user if it doesn't.
@@ -36,7 +36,7 @@ else
     fprintf(1, 'Finished reading all files in %s\n', myFolder);
 end
 
-% CLEANING
+% Clean and sort the data
 
 rawT= struct2table(data, 'AsArray',1);
 T = rmmissing(rawT, 'DataVariables', 'numPress'); % remove 
@@ -72,4 +72,5 @@ w = ismember(T.program,wideWindow);
 T(w,:) = [];
 T = sortrows(T,[1 2]);
 
-save(matFileName);
+save(matFileName, {'T','rawT','data'});
+
